@@ -1,8 +1,8 @@
 import os
 import numpy as np
-from pathlib import Path
 import random
 import tensorflow as tf
+from pathlib import Path
 from ..entity.config_entity import TrainingConfig
 
 
@@ -14,7 +14,6 @@ class Training:
         self.model = tf.keras.models.load_model(self.config.updated_base_model_path)
 
     def train_valid_generator(self):
-
         datagenerator_kwargs = dict(rescale=1.0 / 255, validation_split=0.20)
 
         dataflow_kwargs = dict(
@@ -27,6 +26,7 @@ class Training:
             **datagenerator_kwargs
         )
 
+        # Limit the validation dataset to 200 images
         self.valid_generator = valid_datagenerator.flow_from_directory(
             directory=self.config.training_data,
             subset="validation",
@@ -34,6 +34,10 @@ class Training:
             **dataflow_kwargs
         )
 
+        # If you want to limit to 200 validation images (in total)
+        self.valid_generator.samples = min(self.valid_generator.samples, 200)
+
+        # Limit training dataset to 800 images
         if self.config.params_is_augmentation:
             train_datagenerator = tf.keras.preprocessing.image.ImageDataGenerator(
                 rotation_range=40,
@@ -54,6 +58,9 @@ class Training:
             **dataflow_kwargs
         )
 
+        # Limit the training data to 800 images (manually set it to the desired number)
+        self.train_generator.samples = min(self.train_generator.samples, 800)
+
     @staticmethod
     def save_model(path: Path, model: tf.keras.Model):
         model.save(path)
@@ -66,6 +73,7 @@ class Training:
             self.valid_generator.samples // self.valid_generator.batch_size
         )
 
+        # Train the model
         self.model.fit(
             self.train_generator,
             epochs=self.config.params_epochs,
@@ -75,4 +83,5 @@ class Training:
             callbacks=callback_list,
         )
 
+        # Save the trained model
         self.save_model(path=self.config.trained_model_path, model=self.model)
